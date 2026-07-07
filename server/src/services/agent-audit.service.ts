@@ -14,6 +14,7 @@ type AgentAuditInput = {
     | "graph_completed"
     | "doctor_review_required"
     | "doctor_clarification_required"
+    | "icd_regenerated"
     | "run_approved"
     | "note_saved";
   node?: string;
@@ -122,18 +123,4 @@ export async function createToolAuditEvents(input: {
   }
 
   return audits;
-}
-
-export async function listAgentRunAudit(runId: string) {
-  assertDatabaseReady();
-
-  const objectId = toObjectId(runId);
-  const audits = await AgentAuditModel.find({ runId: objectId })
-    .sort({ createdAt: 1 })
-    .lean();
-
-  return {
-    runId,
-    auditEvents: audits.map(serializeAudit),
-  };
 }

@@ -142,6 +142,9 @@ Rules:
 - Use the provided LIS context only as supporting context.
 - Do not include patient names, MRNs, phone numbers, addresses, or direct identifiers.
 - Do not invent vitals, exam findings, diagnoses, or treatments.
+- Do not say "likely", "possible", "consistent with", or name a condition unless the doctor explicitly stated it.
+- Assessment should summarize the documented problem only and say it is pending physician assessment.
+- Plan should include only instructions explicitly stated by the doctor, plus pending physician review language.
 - If labs or prior notes are relevant, summarize them cautiously as context.
 - Assessment and plan must remain pending physician review.
 - The final note must be safe for doctor editing and approval.`,

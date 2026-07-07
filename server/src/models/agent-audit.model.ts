@@ -18,6 +18,7 @@ const agentAuditSchema = new Schema(
         "graph_completed",
         "doctor_review_required",
         "doctor_clarification_required",
+        "icd_regenerated",
         "run_approved",
         "note_saved",
       ],

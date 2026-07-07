@@ -29,6 +29,8 @@ const noteSchema = new Schema(
     },
     transcript: { type: String, required: true, trim: true },
     soap: { type: soapNoteSchema, required: true },
+    doctorEditSummary: { type: Schema.Types.Mixed, default: null },
+    icdSuggestions: { type: Schema.Types.Mixed, default: [] },
     status: {
       type: String,
       enum: ["draft", "generated", "reviewed", "saved"],

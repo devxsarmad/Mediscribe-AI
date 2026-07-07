@@ -15,6 +15,8 @@ type CreateReviewedNoteInput = {
   patientContext?: PatientContextInput;
   transcript?: unknown;
   soap?: unknown;
+  doctorEditSummary?: unknown;
+  icdSuggestions?: unknown;
   reviewedAt?: unknown;
   source?: {
     audioCaptured?: unknown;
@@ -71,6 +73,10 @@ function normalizeCreateInput(input: unknown) {
     },
     transcript,
     soap: body.soap,
+    doctorEditSummary: body.doctorEditSummary || null,
+    icdSuggestions: Array.isArray(body.icdSuggestions)
+      ? body.icdSuggestions
+      : [],
     status: "saved",
     reviewedAt,
     savedAt: new Date(),
@@ -88,6 +94,8 @@ function serializeNote(note: unknown) {
     patientContext: unknown;
     transcript: string;
     soap: unknown;
+    doctorEditSummary?: unknown;
+    icdSuggestions?: unknown;
     status: string;
     reviewedAt: Date;
     savedAt: Date;
@@ -101,6 +109,8 @@ function serializeNote(note: unknown) {
     patientContext: record.patientContext,
     transcript: record.transcript,
     soap: record.soap,
+    doctorEditSummary: record.doctorEditSummary || null,
+    icdSuggestions: record.icdSuggestions || [],
     status: record.status,
     reviewedAt: record.reviewedAt,
     savedAt: record.savedAt,

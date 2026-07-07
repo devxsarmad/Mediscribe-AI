@@ -7,20 +7,17 @@ Medical Scribe AI MVP for turning doctor-patient conversations into reviewed SOA
 - Frontend: Next.js, React, TypeScript, Tailwind CSS, shadcn/ui-ready structure
 - Backend: Node.js, Express.js, TypeScript
 - Database: MongoDB with Mongoose
-- AI services: OpenAI Whisper for speech-to-text, GPT/Claude for SOAP generation
+- AI services: local STT service/faster-whisper, OpenAI LLM for clinical facts, SOAP, and ICD suggestions
 
-## MVP Chunks
+## Docs
 
-Full build plan: [`ProjectOverview.md`](./ProjectOverview.md)
-MVP readiness checklist: [`MVP_READINESS.md`](./MVP_READINESS.md)
+Full build plan: [`ProjectOverview.md`](./docs/ProjectOverview.md)
+API flow: [`API_FLOW.md`](./docs/API_FLOW.md)
+MVP readiness checklist: [`MVP_READINESS.md`](./docs/MVP_READINESS.md)
 Current status: [`CURRENT_STATUS.md`](./docs/CURRENT_STATUS.md)
-Portfolio finish plan: [`PORTFOLIO_CHUNKS.md`](./docs/PORTFOLIO_CHUNKS.md)
-Hybrid LIS mode: [`CHUNK_M_HYBRID_LIS_MODE.md`](./docs/CHUNK_M_HYBRID_LIS_MODE.md)
-End-to-end demo flow: [`CHUNK_N_END_TO_END_DEMO_FLOW.md`](./docs/CHUNK_N_END_TO_END_DEMO_FLOW.md)
-LIS agent vision: [`LIS_AGENT_VISION.md`](./LIS_AGENT_VISION.md)
-PHI-safe AI pipeline: [`PHI_SAFE_AI_PIPELINE.md`](./PHI_SAFE_AI_PIPELINE.md)
-Internal STT microservice plan: [`INTERNAL_STT_MICROSERVICE_PLAN.md`](./INTERNAL_STT_MICROSERVICE_PLAN.md)
-Post-MVP agent roadmap: [`POST_MVP_AGENT_ROADMAP.md`](./POST_MVP_AGENT_ROADMAP.md)
+PHI-safe AI pipeline: [`PHI_SAFE_AI_PIPELINE.md`](./docs/PHI_SAFE_AI_PIPELINE.md)
+Internal STT microservice plan: [`INTERNAL_STT_MICROSERVICE_PLAN.md`](./docs/INTERNAL_STT_MICROSERVICE_PLAN.md)
+Pro agent roadmap: [`pro-agent.md`](./docs/pro-agent.md)
 
 1. Project setup
 2. Backend foundation

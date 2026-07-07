@@ -27,6 +27,11 @@ export type SoapNote = {
   plan: string;
 };
 
+export type SoapEditSummary = {
+  changedSections: (keyof SoapNote)[];
+  hasDoctorEdits: boolean;
+};
+
 export type ClinicalExtraction = {
   clinicalSummary: string;
   symptoms: string[];
@@ -41,6 +46,14 @@ export type ClinicalFactExtraction = {
   medicationsDiscussed: string[];
   followUpInstructions: string[];
   missingInformation: string[];
+};
+
+export type IcdCodeSuggestion = {
+  code: string;
+  label: string;
+  confidence: "low" | "medium" | "high";
+  reason: string;
+  source: "transcript" | "soap" | "patient_context";
 };
 
 export type SoapGenerationResponse = {
@@ -92,6 +105,8 @@ export type SavedNote = {
   patientContext: PatientContext;
   transcript: string;
   soap: SoapNote;
+  doctorEditSummary?: SoapEditSummary | null;
+  icdSuggestions?: IcdCodeSuggestion[];
   status: "draft" | "generated" | "reviewed" | "saved";
   reviewedAt: string;
   savedAt: string;
@@ -130,6 +145,18 @@ export type ClinicalAgentState = {
   preparedContext?: unknown;
   generatedSoap: SoapNote | null;
   missingInformation: string[];
+  safetyWarnings: {
+    code: string;
+    severity: "info" | "warning";
+    message: string;
+  }[];
+  validationIssues: {
+    code: string;
+    section: keyof SoapNote;
+    severity: "info" | "warning";
+    message: string;
+  }[];
+  icdSuggestions: IcdCodeSuggestion[];
   requiresDoctorApproval: boolean;
   approvalStatus: "pending" | "approved" | "rejected";
   currentNode: string;
@@ -146,6 +173,7 @@ export type ClinicalAgentRun = {
   approvalStatus: string;
   state: ClinicalAgentState;
   approvedSoap?: SoapNote | null;
+  doctorEditSummary?: SoapEditSummary | null;
   approvedAt?: string | null;
   savedNoteId?: string | null;
   createdAt: string;
@@ -201,6 +229,11 @@ type ApproveClinicalAgentRunInput = {
 type ApproveClinicalAgentRunResponse = {
   run: ClinicalAgentRun;
   savedNote: SavedNote;
+};
+
+type RegenerateIcdSuggestionsResponse = {
+  run: ClinicalAgentRun;
+  icdSuggestions: IcdCodeSuggestion[];
 };
 
 type StreamEventHandler = (event: ClinicalAgentProgressEvent) => void;
@@ -303,31 +336,6 @@ export async function saveReviewedNote(
   }
 
   return response.json() as Promise<SavedNote>;
-}
-
-export async function createClinicalAgentRun(
-  input: CreateClinicalAgentRunInput,
-): Promise<ClinicalAgentRun> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/clinical-agent/runs`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response));
-  }
-
-  return response.json() as Promise<ClinicalAgentRun>;
-}
-
-export async function getClinicalAgentRun(
-  runId: string,
-): Promise<ClinicalAgentRun> {
-  return apiGet<ClinicalAgentRun>(`/api/v1/clinical-agent/runs/${runId}`);
 }
 
 function parseStreamBlock(block: string) {
@@ -438,6 +446,29 @@ export async function approveClinicalAgentRun(
   }
 
   return response.json() as Promise<ApproveClinicalAgentRunResponse>;
+}
+
+export async function regenerateClinicalAgentIcdSuggestions(
+  runId: string,
+  input: { soap: SoapNote },
+): Promise<RegenerateIcdSuggestionsResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/clinical-agent/runs/${runId}/icd-suggestions`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json() as Promise<RegenerateIcdSuggestionsResponse>;
 }
 
 export async function listSavedNotes(): Promise<SavedNotesResponse> {

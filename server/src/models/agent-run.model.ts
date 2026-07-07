@@ -26,6 +26,7 @@ const agentRunSchema = new Schema(
     },
     state: { type: Schema.Types.Mixed, required: true },
     approvedSoap: { type: Schema.Types.Mixed, default: null },
+    doctorEditSummary: { type: Schema.Types.Mixed, default: null },
     approvedAt: { type: Date, default: null },
     savedNoteId: { type: Schema.Types.ObjectId, ref: "Note", default: null },
   },

@@ -378,4 +378,4 @@ MVP chunks are complete.
 
 Recommended next task:
 
-Run the full local demo with real `OPENAI_API_KEY` and `MONGODB_URI`, then begin LIS/agent upgrade planning from `LIS_AGENT_VISION.md`.
+Run the full local demo with real `OPENAI_API_KEY` and `MONGODB_URI`, then continue pro-agent planning from `pro-agent.md`.

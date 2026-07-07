@@ -2,13 +2,8 @@ import type { Request, Response } from "express";
 import {
   approveAgentRun,
   createAgentRun,
-  getAgentRun,
-  getAgentRunAudit,
+  regenerateAgentRunIcdSuggestions,
 } from "../services/agent-run.service";
-import {
-  normalizeClinicalAgentInput,
-  runClinicalAgentSkeleton,
-} from "../services/clinical-agent.service";
 import { HttpError } from "../utils/http-error";
 
 function readRunId(value: string | string[] | undefined) {
@@ -17,18 +12,6 @@ function readRunId(value: string | string[] | undefined) {
   }
 
   return value;
-}
-
-export async function runClinicalAgent(req: Request, res: Response) {
-  const input = normalizeClinicalAgentInput(req.body);
-
-  res.json(await runClinicalAgentSkeleton(input));
-}
-
-export async function createClinicalAgentRun(req: Request, res: Response) {
-  const result = await createAgentRun(req.body);
-
-  res.status(201).json(result);
 }
 
 function writeStreamEvent(res: Response, event: string, data: unknown) {
@@ -47,8 +30,6 @@ export async function createClinicalAgentRunStream(req: Request, res: Response) 
     const result = await createAgentRun(req.body, {
       onProgress(event) {
         writeStreamEvent(res, "agent_event", event);
-              console.log(event , 'hello')
-
       },
     });
 
@@ -68,23 +49,19 @@ export async function createClinicalAgentRunStream(req: Request, res: Response) 
   }
 }
 
-export async function getClinicalAgentRun(req: Request, res: Response) {
-  const runId = readRunId(req.params.runId);
-  const result = await getAgentRun(runId);
-
-  res.json(result);
-}
-
-export async function getClinicalAgentRunAudit(req: Request, res: Response) {
-  const runId = readRunId(req.params.runId);
-  const result = await getAgentRunAudit(runId);
-
-  res.json(result);
-}
-
 export async function approveClinicalAgentRun(req: Request, res: Response) {
   const runId = readRunId(req.params.runId);
   const result = await approveAgentRun(runId, req.body);
+
+  res.json(result);
+}
+
+export async function regenerateClinicalAgentIcdSuggestions(
+  req: Request,
+  res: Response,
+) {
+  const runId = readRunId(req.params.runId);
+  const result = await regenerateAgentRunIcdSuggestions(runId, req.body);
 
   res.json(result);
 }

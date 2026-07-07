@@ -4,20 +4,24 @@ import { AgentRunModel } from "../models/agent-run.model";
 import {
   createAgentAuditEvent,
   createToolAuditEvents,
-  listAgentRunAudit,
 } from "./agent-audit.service";
 import { createReviewedNote } from "./note.service";
+import { suggestIcdCodes } from "./icd-suggestion.service";
 import {
   type ClinicalAgentProgressEvent,
   normalizeClinicalAgentInput,
   runClinicalAgentGraph,
 } from "./clinical-agent.service";
-import { isSoapNote } from "../types/soap.types";
+import { isSoapNote, summarizeSoapEdits } from "../types/soap.types";
 import { HttpError } from "../utils/http-error";
 
 type ApproveAgentRunInput = {
   soap?: unknown;
   reviewedAt?: unknown;
+};
+
+type RegenerateIcdInput = {
+  soap?: unknown;
 };
 
 type CreateAgentRunOptions = {
@@ -43,6 +47,7 @@ function serializeAgentRun(run: unknown) {
     approvalStatus: string;
     state: unknown;
     approvedSoap?: unknown;
+    doctorEditSummary?: unknown;
     approvedAt?: Date | null;
     savedNoteId?: { toString(): string } | null;
     createdAt: Date;
@@ -58,6 +63,7 @@ function serializeAgentRun(run: unknown) {
     approvalStatus: record.approvalStatus,
     state: record.state,
     approvedSoap: record.approvedSoap,
+    doctorEditSummary: record.doctorEditSummary || null,
     approvedAt: record.approvedAt,
     savedNoteId: record.savedNoteId?.toString() || null,
     createdAt: record.createdAt,
@@ -168,14 +174,63 @@ export async function createAgentRun(
   return serializeAgentRun(run);
 }
 
-export async function getAgentRun(runId: string) {
+export async function regenerateAgentRunIcdSuggestions(
+  runId: string,
+  input: unknown,
+) {
   const run = await findAgentRunById(runId);
-  return serializeAgentRun(run);
-}
 
-export async function getAgentRunAudit(runId: string) {
-  await findAgentRunById(runId);
-  return listAgentRunAudit(runId);
+  if (run.status === "saved") {
+    throw new HttpError(409, "Agent run has already been saved.");
+  }
+
+  const body = input as RegenerateIcdInput;
+  const state = run.state as {
+    transcript?: string;
+    clinicalFacts?: unknown;
+    generatedSoap?: unknown;
+    patientContext?: unknown;
+  };
+  const soap = body?.soap || state.generatedSoap;
+
+  if (!isSoapNote(soap)) {
+    throw new HttpError(
+      400,
+      "Current SOAP note is required before regenerating ICD suggestions.",
+    );
+  }
+
+  const icdSuggestions = await suggestIcdCodes({
+    transcript: state.transcript || "",
+    clinicalFacts: state.clinicalFacts as never,
+    soap,
+    patient: state.patientContext as never,
+  });
+
+  run.state = {
+    ...(run.state as Record<string, unknown>),
+    icdSuggestions,
+    icdSuggestionsUpdatedAt: new Date().toISOString(),
+  };
+
+  await run.save();
+
+  await createAgentAuditEvent({
+    runId: run._id,
+    patientId: run.patientId,
+    encounterId: run.encounterId,
+    eventType: "icd_regenerated",
+    status: "success",
+    message: "ICD suggestions regenerated after doctor SOAP edits.",
+    metadata: {
+      suggestionCount: icdSuggestions.length,
+    },
+  });
+
+  return {
+    run: serializeAgentRun(run),
+    icdSuggestions,
+  };
 }
 
 export async function approveAgentRun(runId: string, input: unknown) {
@@ -196,6 +251,7 @@ export async function approveAgentRun(runId: string, input: unknown) {
   const state = run.state as {
     transcript?: string;
     generatedSoap?: unknown;
+    icdSuggestions?: unknown[];
     patientContext?: { age?: number; displayName?: string; mrn?: string };
     encounterContext?: { visitType?: string };
   };
@@ -208,6 +264,10 @@ export async function approveAgentRun(runId: string, input: unknown) {
     );
   }
 
+  const originalSoap = isSoapNote(state.generatedSoap)
+    ? state.generatedSoap
+    : approvedSoap;
+  const doctorEditSummary = summarizeSoapEdits(originalSoap, approvedSoap);
   const reviewedAt = normalizeReviewedAt(body?.reviewedAt);
   const savedNote = await createReviewedNote({
     patientContext: {
@@ -221,6 +281,10 @@ export async function approveAgentRun(runId: string, input: unknown) {
     },
     transcript: state.transcript || "",
     soap: approvedSoap,
+    doctorEditSummary,
+    icdSuggestions: Array.isArray(state.icdSuggestions)
+      ? state.icdSuggestions
+      : [],
     reviewedAt: reviewedAt.toISOString(),
     source: {
       audioCaptured: Boolean(state.transcript),
@@ -231,12 +295,14 @@ export async function approveAgentRun(runId: string, input: unknown) {
   run.status = "saved";
   run.approvalStatus = "approved";
   run.approvedSoap = approvedSoap;
+  run.doctorEditSummary = doctorEditSummary;
   run.approvedAt = reviewedAt;
   run.savedNoteId = new mongoose.Types.ObjectId(savedNote.id);
   run.state = {
     ...(run.state as Record<string, unknown>),
     approvalStatus: "approved",
     generatedSoap: approvedSoap,
+    doctorEditSummary,
   };
 
   await run.save();
@@ -250,6 +316,7 @@ export async function approveAgentRun(runId: string, input: unknown) {
     message: "Doctor approved the agent-generated SOAP note.",
     metadata: {
       approvedAt: reviewedAt.toISOString(),
+      doctorEditSummary,
     },
   });
 

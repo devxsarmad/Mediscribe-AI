@@ -14,6 +14,27 @@ export type ClinicalFactExtraction = {
   missingInformation: string[];
 };
 
+export type ClinicalSafetyWarning = {
+  code: string;
+  severity: "info" | "warning";
+  message: string;
+};
+
+export type ClinicalValidationIssue = {
+  code: string;
+  section: "subjective" | "objective" | "assessment" | "plan";
+  severity: "info" | "warning";
+  message: string;
+};
+
+export type IcdCodeSuggestion = {
+  code: string;
+  label: string;
+  confidence: "low" | "medium" | "high";
+  reason: string;
+  source: "transcript" | "soap" | "patient_context";
+};
+
 export function isClinicalExtraction(value: unknown): value is ClinicalExtraction {
   if (!value || typeof value !== "object") {
     return false;
@@ -52,6 +73,28 @@ export function isClinicalFactExtraction(
     isStringArray(record.followUpInstructions) &&
     isStringArray(record.missingInformation)
   );
+}
+
+export function isIcdCodeSuggestion(value: unknown): value is IcdCodeSuggestion {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.code === "string" &&
+    typeof record.label === "string" &&
+    ["low", "medium", "high"].includes(String(record.confidence)) &&
+    typeof record.reason === "string" &&
+    ["transcript", "soap", "patient_context"].includes(String(record.source))
+  );
+}
+
+export function isIcdCodeSuggestionArray(
+  value: unknown,
+): value is IcdCodeSuggestion[] {
+  return Array.isArray(value) && value.every(isIcdCodeSuggestion);
 }
 
 export function toReviewableSoapNote(extraction: ClinicalExtraction) {

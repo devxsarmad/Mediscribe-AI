@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 .next/
+docs/
 .env
 .env.local
 .DS_Store

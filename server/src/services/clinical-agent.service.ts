@@ -1,6 +1,9 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { executeAgentTool } from "./agent-tools.service";
 import { extractClinicalFacts } from "./clinical-extraction.service";
+import { reviewClinicalSafety } from "./clinical-safety.service";
+import { validateSoapAgainstSource } from "./clinical-validation.service";
+import { suggestIcdCodes } from "./icd-suggestion.service";
 import { generateContextAwareSoapNote } from "./soap.service";
 import type {
   AgentToolAuditEvent,
@@ -55,6 +58,18 @@ const ClinicalAgentAnnotation = Annotation.Root({
     reducer: (_left, right) => right,
     default: () => [],
   }),
+  safetyWarnings: Annotation<ClinicalAgentState["safetyWarnings"]>({
+    reducer: (_left, right) => right,
+    default: () => [],
+  }),
+  validationIssues: Annotation<ClinicalAgentState["validationIssues"]>({
+    reducer: (_left, right) => right,
+    default: () => [],
+  }),
+  icdSuggestions: Annotation<ClinicalAgentState["icdSuggestions"]>({
+    reducer: (_left, right) => right,
+    default: () => [],
+  }),
   requiresDoctorApproval: Annotation<boolean>(),
   approvalStatus: Annotation<ClinicalAgentState["approvalStatus"]>(),
   currentNode: Annotation<ClinicalAgentNode>(),
@@ -105,6 +120,9 @@ function createInitialState(input: ClinicalAgentInput): ClinicalAgentState {
     clinicalFacts: undefined,
     generatedSoap: null,
     missingInformation: [],
+    safetyWarnings: [],
+    validationIssues: [],
+    icdSuggestions: [],
     requiresDoctorApproval: true,
     approvalStatus: "pending",
     currentNode: "start",
@@ -308,6 +326,49 @@ async function generateContextAwareSoapNode(
   };
 }
 
+function reviewSafetyWarningsNode(
+  state: LangGraphClinicalAgentState,
+): LangGraphClinicalAgentUpdate {
+  return {
+    safetyWarnings: reviewClinicalSafety({
+      facts: state.clinicalFacts,
+      soap: state.generatedSoap,
+    }),
+    currentNode: "review_safety_warnings",
+    completedNodes: ["review_safety_warnings"],
+  };
+}
+
+function validateSoapClaimsNode(
+  state: LangGraphClinicalAgentState,
+): LangGraphClinicalAgentUpdate {
+  return {
+    validationIssues: validateSoapAgainstSource({
+      transcript: state.transcript,
+      facts: state.clinicalFacts,
+      patient: state.patientContext,
+      soap: state.generatedSoap,
+    }),
+    currentNode: "validate_soap_claims",
+    completedNodes: ["validate_soap_claims"],
+  };
+}
+
+async function suggestIcdCodesNode(
+  state: LangGraphClinicalAgentState,
+): Promise<LangGraphClinicalAgentUpdate> {
+  return {
+    icdSuggestions: await suggestIcdCodes({
+      transcript: state.transcript,
+      clinicalFacts: state.clinicalFacts,
+      soap: state.generatedSoap,
+      patient: state.patientContext,
+    }),
+    currentNode: "suggest_icd_codes",
+    completedNodes: ["suggest_icd_codes"],
+  };
+}
+
 function doctorClarificationRequiredNode(): LangGraphClinicalAgentUpdate {
   return {
     requiresDoctorApproval: true,
@@ -442,6 +503,26 @@ function createClinicalAgentGraph(onProgress?: ClinicalAgentProgressHandler) {
       ),
     )
     .addNode(
+      "review_safety_warnings",
+      createProgressNode(
+        "review_safety_warnings",
+        reviewSafetyWarningsNode,
+        onProgress,
+      ),
+    )
+    .addNode(
+      "validate_soap_claims",
+      createProgressNode(
+        "validate_soap_claims",
+        validateSoapClaimsNode,
+        onProgress,
+      ),
+    )
+    .addNode(
+      "suggest_icd_codes",
+      createProgressNode("suggest_icd_codes", suggestIcdCodesNode, onProgress),
+    )
+    .addNode(
       "doctor_clarification_required",
       createProgressNode(
         "doctor_clarification_required",
@@ -469,7 +550,10 @@ function createClinicalAgentGraph(onProgress?: ClinicalAgentProgressHandler) {
       generate_context_aware_soap: "generate_context_aware_soap",
       doctor_clarification_required: "doctor_clarification_required",
     })
-    .addEdge("generate_context_aware_soap", "doctor_review_required")
+    .addEdge("generate_context_aware_soap", "review_safety_warnings")
+    .addEdge("review_safety_warnings", "validate_soap_claims")
+    .addEdge("validate_soap_claims", "suggest_icd_codes")
+    .addEdge("suggest_icd_codes", "doctor_review_required")
     .addEdge("doctor_clarification_required", "end_node")
     .addEdge("doctor_review_required", "end_node")
     .addEdge("end_node", END)
@@ -510,5 +594,3 @@ export async function runClinicalAgentGraph(
     state,
   };
 }
-
-export const runClinicalAgentSkeleton = runClinicalAgentGraph;

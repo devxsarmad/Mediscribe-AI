@@ -5,6 +5,11 @@ export type SoapNote = {
   plan: string;
 };
 
+export type SoapEditSummary = {
+  changedSections: (keyof SoapNote)[];
+  hasDoctorEdits: boolean;
+};
+
 export function isSoapNote(value: unknown): value is SoapNote {
   if (!value || typeof value !== "object") {
     return false;
@@ -15,4 +20,20 @@ export function isSoapNote(value: unknown): value is SoapNote {
   return ["subjective", "objective", "assessment", "plan"].every(
     (key) => typeof record[key] === "string",
   );
+}
+
+export function summarizeSoapEdits(
+  original: SoapNote,
+  reviewed: SoapNote,
+): SoapEditSummary {
+  const changedSections = (
+    ["subjective", "objective", "assessment", "plan"] as (keyof SoapNote)[]
+  ).filter(
+    (section) => original[section].trim() !== reviewed[section].trim(),
+  );
+
+  return {
+    changedSections,
+    hasDoctorEdits: changedSections.length > 0,
+  };
 }

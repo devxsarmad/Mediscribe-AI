@@ -1,5 +1,10 @@
 import type { AgentToolAuditEvent } from "./agent-tool.types";
-import type { ClinicalFactExtraction } from "./clinical.types";
+import type {
+  ClinicalFactExtraction,
+  ClinicalSafetyWarning,
+  ClinicalValidationIssue,
+  IcdCodeSuggestion,
+} from "./clinical.types";
 import type {
   LisEncounter,
   LisLabResult,
@@ -17,6 +22,9 @@ export type ClinicalAgentNode =
   | "extract_clinical_facts"
   | "prepare_context"
   | "generate_context_aware_soap"
+  | "review_safety_warnings"
+  | "validate_soap_claims"
+  | "suggest_icd_codes"
   | "doctor_clarification_required"
   | "doctor_review_required"
   | "end";
@@ -49,6 +57,9 @@ export type ClinicalAgentState = {
   preparedContext?: ClinicalAgentPreparedContext;
   generatedSoap: SoapNote | null;
   missingInformation: string[];
+  safetyWarnings: ClinicalSafetyWarning[];
+  validationIssues: ClinicalValidationIssue[];
+  icdSuggestions: IcdCodeSuggestion[];
   requiresDoctorApproval: boolean;
   approvalStatus: "pending" | "approved" | "rejected";
   currentNode: ClinicalAgentNode;

@@ -13,10 +13,14 @@
     "dev:client": "npm run dev --workspace client",
     "dev:server": "npm run dev --workspace server",
     "build": "npm run build --workspaces --if-present",
+    "build:client": "npm run build --workspace client",
+    "build:server": "npm run build --workspace server",
     "start": "npm run start --workspace server",
+    "start:client": "npm run start --workspace client",
+    "start:server": "npm run start --workspace server",
     "lint": "npm run lint --workspaces --if-present"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.11.0"
   }
 }

@@ -1,0 +1,45 @@
+# MediScribe AI — Render blueprint (monorepo)
+#
+# Use TWO web services: API + Next.js frontend.
+# Do NOT run `npm run build` (full monorepo) on a single API service — the
+# Next.js build is heavy and will fail on small instances.
+
+services:
+  - type: web
+    name: mediscribe-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build:server
+    startCommand: npm run start:server
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: PORT
+        value: 4000
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_TRANSCRIPTION_MODEL
+        value: whisper-1
+      - key: OPENAI_SOAP_MODEL
+        value: gpt-4o-mini
+
+  - type: web
+    name: mediscribe-web
+    runtime: node
+    plan: free
+    buildCommand: npm install && NODE_OPTIONS=--max-old-space-size=512 npm run build:client
+    startCommand: npm run start:client
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false

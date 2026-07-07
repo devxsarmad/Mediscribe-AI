@@ -54,7 +54,9 @@ function readBoolean(value: string | undefined, fallback: boolean) {
     return fallback;
   }
 
-  return value === "true" || value === "1";
+  const normalized = value.trim().toLowerCase();
+
+  return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
 function readList(value: string | undefined, fallback: string[]) {

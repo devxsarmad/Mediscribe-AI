@@ -3,7 +3,7 @@ import { env } from "../config/env";
 import { HttpError } from "../utils/http-error";
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
-  if (env.nodeEnv === "development" && error instanceof Error) {
+  if (error instanceof Error) {
     console.error(error);
   }
 

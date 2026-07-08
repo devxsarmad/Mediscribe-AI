@@ -23,11 +23,11 @@ export function Toast({ description, onClose, title }: ToastProps) {
   return (
     <div
       className={cn(
-        "fixed bottom-5 right-5 z-50 flex w-[calc(100vw-2rem)] max-w-sm items-start gap-3 rounded-lg border border-blue-200 bg-white p-4 text-foreground shadow-lg"
+        "fixed bottom-5 right-5 z-50 flex w-[calc(100vw-2rem)] max-w-sm items-start gap-3 rounded-lg border border-amber-500 bg-zinc-950 p-4 text-foreground shadow-lg shadow-black/40"
       )}
       role="status"
     >
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-100 text-black">
         <CheckCircle2 aria-hidden="true" className="size-4" />
       </div>
 

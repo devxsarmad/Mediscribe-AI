@@ -53,13 +53,13 @@ export default function NotesPage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-200 bg-background/80 pb-5 lg:flex-row lg:items-center lg:justify-between">
+        <header className="flex flex-col gap-4 border-b border-zinc-800 bg-background/80 pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-blue-200 bg-blue-50 text-blue-800">
+              <Badge className="border-amber-500 bg-amber-500 text-black">
                 Medical Scribe AI
               </Badge>
-              <Badge className="border-slate-200 bg-white text-slate-600">
+              <Badge className="border-zinc-700 bg-zinc-950 text-zinc-300">
                 Saved records
               </Badge>
             </div>
@@ -91,7 +91,7 @@ export default function NotesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
             <CardTitle>Recent notes</CardTitle>
-            <Badge className="border-blue-200 bg-blue-50 text-blue-700">
+            <Badge className="border-amber-500 bg-amber-500 text-black">
               {notes.length} total
             </Badge>
           </CardHeader>
@@ -103,20 +103,20 @@ export default function NotesPage() {
               </div>
             ) : null}
             {notesState === "loading" ? (
-              <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-3 rounded-md border border-zinc-800 bg-zinc-950 p-5 text-sm text-muted-foreground">
                 <Loader2 aria-hidden="true" className="size-4 animate-spin" />
                 Loading saved notes...
               </div>
             ) : null}
             {notesState !== "loading" && notesState !== "error" && notes.length === 0 ? (
-              <div className="rounded-md border border-dashed bg-muted/30 p-5 text-sm text-muted-foreground">
+              <div className="rounded-md border border-dashed border-zinc-700 bg-zinc-950 p-5 text-sm text-muted-foreground">
                 No saved notes yet. Once a doctor reviews and saves a SOAP note,
                 it will appear here.
               </div>
             ) : null}
             <div className="grid gap-3">
               {notes.map((note) => (
-                <div className="rounded-md border bg-background p-4" key={note.id}>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950 p-4" key={note.id}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold">
@@ -128,14 +128,14 @@ export default function NotesPage() {
                         {formatSavedAt(note.savedAt)}
                       </p>
                     </div>
-                    <Badge className="border-blue-200 bg-blue-50 text-blue-700">
+                    <Badge className="border-amber-500 bg-amber-500 text-black">
                       <FileText aria-hidden="true" className="mr-1 size-3" />
                       {note.status}
                     </Badge>
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {soapSections.map((section) => (
-                      <div className="rounded-md bg-muted/40 p-3" key={section.key}>
+                      <div className="rounded-md bg-zinc-900 p-3" key={section.key}>
                         <p className="text-xs font-semibold uppercase text-muted-foreground">
                           {section.label}
                         </p>

@@ -122,6 +122,15 @@ type SaveState = "idle" | "loading" | "saved" | "error";
 type IcdRegenerationState = "idle" | "loading" | "error";
 type ReviewPanelTab = "edits" | "safety" | "validation" | "icd";
 type WorkspaceTab = "capture" | "transcript" | "soap" | "review";
+type PrimaryAction =
+  | "start"
+  | "stop"
+  | "transcribe"
+  | "generate"
+  | "openReview"
+  | "review"
+  | "save"
+  | "reset";
 function formatDuration(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
     .toString()
@@ -399,6 +408,7 @@ export default function Home() {
     setSaveSuccessMessage("");
     setIcdRegenerationState("idle");
     setIcdRegenerationError("");
+    setWorkspaceTab("capture");
   }
 
   function resetAgentActivity() {
@@ -484,6 +494,7 @@ export default function Home() {
       resetAgentActivity();
       setAgentStatusVisible(true);
       setElapsedSeconds(0);
+      setWorkspaceTab("capture");
 
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
@@ -574,6 +585,7 @@ export default function Home() {
     setIcdRegenerationError("");
     resetAgentActivity();
     setAgentStatusVisible(true);
+    setWorkspaceTab("capture");
 
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl);
@@ -642,6 +654,7 @@ export default function Home() {
     setIcdRegenerationError("");
     resetAgentActivity();
     setAgentStatusVisible(true);
+    setWorkspaceTab("soap");
 
     try {
       const result = await createClinicalAgentRunStream(
@@ -683,6 +696,7 @@ export default function Home() {
           ? error.message
           : "Agent SOAP generation failed. Check the API server, MongoDB, and AI configuration.",
       );
+      setWorkspaceTab("soap");
     }
   }
 
@@ -900,17 +914,114 @@ export default function Home() {
     { key: "soap", label: "SOAP draft", badge: soapBadge },
     { key: "review", label: "Review & coding", badge: reviewBadge },
   ];
+  const activeStepIndex = workspaceTabs.findIndex(
+    (tab) => tab.key === workspaceTab,
+  );
+  const hasSoapContent = Object.values(soapNote).some((value) => value.trim());
+
+  const primaryAction: PrimaryAction =
+    saveState === "saved"
+      ? "reset"
+      : recorderState === "recording"
+        ? "stop"
+        : !audioBlob && !transcript.trim()
+          ? "start"
+          : audioBlob && transcriptionState !== "done" && !transcript.trim()
+            ? "transcribe"
+            : transcript.trim() && soapState !== "done"
+              ? "generate"
+              : hasSoapContent &&
+                  reviewState !== "reviewed" &&
+                  reviewState !== "ready-to-save" &&
+                  workspaceTab !== "review"
+                ? "openReview"
+                : hasSoapContent &&
+                  reviewState !== "reviewed" &&
+                  reviewState !== "ready-to-save"
+                ? "review"
+                : "save";
+
+  const primaryActionConfig: Record<
+    PrimaryAction,
+    {
+      label: string;
+      icon: typeof Mic;
+      loading?: boolean;
+      disabled?: boolean;
+      action: () => void;
+    }
+  > = {
+    start: {
+      label: "Start recording",
+      icon: Mic,
+      disabled: !selectedPatient || recorderState === "recording",
+      action: startRecording,
+    },
+    stop: {
+      label: "Stop recording",
+      icon: Square,
+      action: stopRecording,
+    },
+    transcribe: {
+      label:
+        transcriptionState === "loading" ? "Transcribing..." : "Transcribe audio",
+      icon: transcriptionState === "loading" ? Loader2 : FileText,
+      loading: transcriptionState === "loading",
+      disabled: !audioBlob || transcriptionState === "loading",
+      action: () => {
+        void handleTranscribe();
+      },
+    },
+    generate: {
+      label: soapState === "loading" ? "Generating SOAP..." : "Generate SOAP draft",
+      icon: soapState === "loading" ? Loader2 : Sparkles,
+      loading: soapState === "loading",
+      disabled: soapState === "loading" || !transcript.trim() || !selectedPatient,
+      action: () => {
+        void handleGenerateSoap();
+      },
+    },
+    openReview: {
+      label: "Continue to review & coding",
+      icon: ShieldCheck,
+      disabled: !hasSoapContent,
+      action: () => setWorkspaceTab("review"),
+    },
+    review: {
+      label: "Mark reviewed",
+      icon: ClipboardCheck,
+      disabled: !hasSoapContent || soapState === "loading",
+      action: markReviewed,
+    },
+    save: {
+      label: saveState === "loading" ? "Saving note..." : "Save final note",
+      icon: saveState === "loading" ? Loader2 : Save,
+      loading: saveState === "loading",
+      disabled:
+        saveState === "loading" ||
+        (reviewState !== "reviewed" && reviewState !== "ready-to-save"),
+      action: () => {
+        void prepareSave();
+      },
+    },
+    reset: {
+      label: "Start new note",
+      icon: RefreshCcw,
+      action: resetRecording,
+    },
+  };
+  const PrimaryActionIcon = primaryActionConfig[primaryAction].icon;
 
   return (
     <main className="flex h-[100dvh] flex-col overflow-hidden bg-background">
-      <header className="shrink-0 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6">
+      <header className="shrink-0 border-b border-zinc-800 bg-black/90 px-4 py-3 backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-blue-200 bg-blue-50 text-blue-800">
+              <Badge className="border-amber-500 bg-amber-500 text-black">
                 Medical Scribe AI
               </Badge>
-              <Badge className="border-slate-200 bg-white text-slate-600">
+              <Badge className="border-zinc-700 bg-zinc-950 text-zinc-300">
                 PHI sanitized
               </Badge>
             </div>
@@ -921,7 +1032,7 @@ export default function Home() {
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <select
-              className="h-9 min-w-[220px] rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              className="h-9 min-w-[220px] rounded-md border border-input bg-zinc-950 px-3 text-sm font-medium text-foreground shadow-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
               disabled={patientLoadState === "loading" || !patients.length}
               onChange={(event) => handlePatientChange(event.target.value)}
               value={selectedPatientId}
@@ -971,31 +1082,41 @@ export default function Home() {
         </div>
       </header>
 
-      <nav className="shrink-0 border-b border-slate-200 bg-white px-4 sm:px-6">
-        <div className="mx-auto flex max-w-[1440px] gap-1 overflow-x-auto py-2">
-          {workspaceTabs.map((tab) => (
-            <button
-              className={`flex shrink-0 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                workspaceTab === tab.key
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              }`}
-              key={tab.key}
-              onClick={() => setWorkspaceTab(tab.key)}
-              type="button"
-            >
-              {tab.label}
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  workspaceTab === tab.key
-                    ? "bg-white/20 text-white"
-                    : "bg-muted text-muted-foreground"
+      <nav className="shrink-0 border-b border-zinc-800 bg-black px-4 sm:px-6">
+        <div className="mx-auto grid max-w-[1440px] gap-2 py-2 md:grid-cols-4">
+          {workspaceTabs.map((tab, index) => {
+            const isActive = workspaceTab === tab.key;
+            const isComplete = index < activeStepIndex;
+
+            return (
+              <div
+                className={`flex min-h-12 items-center gap-3 rounded-md border px-3 ${
+                  isActive
+                    ? "border-amber-500 bg-amber-500 text-black"
+                    : isComplete
+                      ? "border-amber-900 bg-zinc-950 text-amber-200"
+                      : "border-zinc-800 bg-zinc-950 text-muted-foreground"
                 }`}
+                key={tab.key}
               >
-                {tab.badge}
-              </span>
-            </button>
-          ))}
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : isComplete
+                        ? "bg-amber-500 text-black"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {isComplete ? "✓" : index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{tab.label}</p>
+                  <p className="truncate text-xs">{tab.badge}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </nav>
 
@@ -1008,7 +1129,7 @@ export default function Home() {
                   <CardTitle>Recording</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center">
+                  <div className="flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-amber-500/70 bg-zinc-950 p-6 text-center">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
                       {recorderState === "recording" ? (
                         <Mic aria-hidden="true" className="size-6" />
@@ -1021,32 +1142,13 @@ export default function Home() {
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">{recordingStatus}</p>
                     {audioBlob ? (
-                      <p className="mt-2 text-xs font-medium text-blue-700">
+                      <p className="mt-2 text-xs font-medium text-amber-300">
                         {formatBytes(audioBlob.size)} captured
                       </p>
                     ) : null}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      disabled={recorderState === "recording"}
-                      onClick={startRecording}
-                      type="button"
-                    >
-                      <Mic aria-hidden="true" />
-                      Start
-                    </Button>
-                    <Button
-                      disabled={recorderState !== "recording"}
-                      onClick={stopRecording}
-                      variant="outline"
-                      type="button"
-                    >
-                      <Square aria-hidden="true" />
-                      Stop
-                    </Button>
-                  </div>
                   {audioUrl ? (
-                    <audio className="w-full" controls src={audioUrl}>
+                    <audio className="mx-auto w-full max-w-md" controls src={audioUrl}>
                       <track kind="captions" />
                     </audio>
                   ) : null}
@@ -1067,11 +1169,11 @@ export default function Home() {
                     const Icon = item.icon;
                     return (
                       <div
-                        className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2"
+                        className="flex items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2"
                         key={item.label}
                       >
                         <div className="flex items-center gap-2">
-                          <Icon aria-hidden="true" className="size-4 text-blue-700" />
+                          <Icon aria-hidden="true" className="size-4 text-amber-700" />
                           <span className="text-sm font-medium">{item.label}</span>
                         </div>
                         <span className="text-xs text-muted-foreground">{item.value}</span>
@@ -1106,11 +1208,44 @@ export default function Home() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle>SOAP draft</CardTitle>
-                <Badge className="border-blue-200 bg-blue-50 text-blue-700">
+                <Badge className="border-amber-500 bg-amber-500 text-black">
                   {soapBadge}
                 </Badge>
               </CardHeader>
               <CardContent className="grid gap-4 lg:grid-cols-2">
+                {showAgentStatus ? (
+                  <div className="flex justify-center lg:col-span-2">
+                    <div
+                      className={`flex w-full max-w-md items-center gap-3 rounded-lg border px-3 py-2 ${
+                        soapState === "loading"
+                          ? "border-amber-500 bg-zinc-950"
+                          : "border-amber-900 bg-zinc-950"
+                      }`}
+                    >
+                      <div
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                          soapState === "loading"
+                            ? "bg-black text-amber-300"
+                            : "bg-amber-500 text-black"
+                        }`}
+                      >
+                        {soapState === "loading" ? (
+                          <Loader2
+                            aria-hidden="true"
+                            className="size-3.5 animate-spin"
+                          />
+                        ) : (
+                          <CheckCircle2 aria-hidden="true" className="size-3.5" />
+                        )}
+                      </div>
+                      <p className="min-w-0 flex-1 truncate text-xs font-medium">
+                        {soapState === "loading"
+                          ? `${currentAgentStep.label}...`
+                          : "Context gathered — SOAP draft ready"}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
                 {soapFieldLabels.map((section) => (
                   <div key={section.key} className="flex flex-col">
                     <label className="mb-2 block text-sm font-semibold">
@@ -1137,6 +1272,17 @@ export default function Home() {
 
           {workspaceTab === "review" ? (
             <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  disabled={!hasSoapContent || saveState === "loading"}
+                  onClick={() => setWorkspaceTab("soap")}
+                  type="button"
+                  variant="outline"
+                >
+                  <FileText aria-hidden="true" />
+                  Edit SOAP draft
+                </Button>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                   <CardContent className="flex items-center gap-3 pt-6">
@@ -1159,7 +1305,7 @@ export default function Home() {
                       aria-hidden="true"
                       className={`size-5 ${
                         reviewState === "reviewed" || reviewState === "ready-to-save"
-                          ? "text-blue-700"
+                          ? "text-amber-700"
                           : "text-muted-foreground"
                       }`}
                     />
@@ -1182,17 +1328,17 @@ export default function Home() {
                   <CardHeader className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <CardTitle>Review intelligence</CardTitle>
-                      <Badge className="border-slate-200 bg-white text-slate-600">
+                      <Badge className="border-zinc-700 bg-zinc-950 text-zinc-300">
                         Agent context
                       </Badge>
                     </div>
-                    <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/40 p-1">
+                    <div className="flex flex-wrap gap-1 rounded-lg border border-zinc-800 bg-zinc-950 p-1">
                       {reviewPanelTabs.map((tab) => (
                         <button
                           className={`flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors ${
                             reviewPanelTab === tab.key
-                              ? "bg-white text-slate-950 shadow-sm"
-                              : "text-muted-foreground hover:bg-white/70"
+                              ? "bg-amber-500 text-black shadow-sm"
+                              : "text-muted-foreground hover:bg-zinc-900 hover:text-amber-200"
                           }`}
                           key={tab.key}
                           onClick={() => setReviewPanelTab(tab.key)}
@@ -1206,7 +1352,7 @@ export default function Home() {
                                   ? "bg-rose-100 text-rose-700"
                                   : tab.tone === "warning"
                                     ? "bg-amber-100 text-amber-700"
-                                    : "bg-blue-100 text-blue-700"
+                                    : "bg-amber-500 text-black"
                               }`}
                             >
                               {tab.count}
@@ -1222,7 +1368,7 @@ export default function Home() {
                         <div className="flex flex-wrap gap-2">
                           {changedSoapSections.map((section) => (
                             <Badge
-                              className="border-blue-200 bg-white text-blue-700"
+                              className="border-amber-500 bg-zinc-950 text-amber-300"
                               key={section}
                             >
                               {soapSectionTitles[section]}
@@ -1230,7 +1376,7 @@ export default function Home() {
                           ))}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 rounded-md bg-muted/60 p-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 rounded-md bg-zinc-950 p-4 text-sm text-muted-foreground">
                           <ClipboardCheck aria-hidden="true" className="size-4" />
                           <span>Doctor has not changed the AI draft yet.</span>
                         </div>
@@ -1244,8 +1390,8 @@ export default function Home() {
                             <div
                               className={`flex gap-2 rounded-md border p-3 text-sm ${
                                 warning.severity === "warning"
-                                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                                  : "border-blue-100 bg-blue-50 text-blue-800"
+                                  ? "border-amber-500/60 bg-amber-500/10 text-amber-100"
+                                  : "border-amber-500/60 bg-amber-500/10 text-amber-100"
                               }`}
                               key={`${warning.code}-${index}`}
                             >
@@ -1255,7 +1401,7 @@ export default function Home() {
                           ))}
                         </div>
                       ) : (
-                        <div className="rounded-md bg-muted/60 p-4 text-sm text-muted-foreground">
+                        <div className="rounded-md bg-zinc-950 p-4 text-sm text-muted-foreground">
                           No safety gaps flagged.
                         </div>
                       )
@@ -1268,8 +1414,8 @@ export default function Home() {
                             <div
                               className={`rounded-md border p-3 text-sm ${
                                 issue.severity === "warning"
-                                  ? "border-rose-200 bg-rose-50 text-rose-900"
-                                  : "border-blue-100 bg-blue-50 text-blue-800"
+                                  ? "border-rose-500/60 bg-rose-500/10 text-rose-100"
+                                  : "border-amber-500/60 bg-amber-500/10 text-amber-100"
                               }`}
                               key={`${issue.code}-${issue.section}-${index}`}
                             >
@@ -1284,7 +1430,7 @@ export default function Home() {
                           ))}
                         </div>
                       ) : (
-                        <div className="rounded-md bg-muted/60 p-4 text-sm text-muted-foreground">
+                        <div className="rounded-md bg-zinc-950 p-4 text-sm text-muted-foreground">
                           No unsupported claims flagged.
                         </div>
                       )
@@ -1294,7 +1440,7 @@ export default function Home() {
                       icdSuggestions.length ? (
                         <div className="space-y-3">
                           {icdSuggestionsMayBeOutdated ? (
-                            <div className="space-y-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                            <div className="space-y-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-4 text-sm text-amber-100">
                               <div className="flex gap-2">
                                 <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                                 <span>
@@ -1303,7 +1449,7 @@ export default function Home() {
                                 </span>
                               </div>
                               <Button
-                                className="w-full border-amber-300 bg-white text-amber-900 hover:bg-amber-100 sm:w-auto"
+                                className="w-full border-amber-500 bg-zinc-950 text-amber-200 hover:bg-zinc-900 sm:w-auto"
                                 disabled={icdRegenerationState === "loading"}
                                 onClick={handleRegenerateIcdSuggestions}
                                 type="button"
@@ -1328,19 +1474,19 @@ export default function Home() {
                           <div className="grid gap-3 lg:grid-cols-2">
                             {icdSuggestions.map((suggestion) => (
                               <div
-                                className="rounded-md border border-slate-200 bg-white p-4 text-sm"
+                                className="rounded-md border border-zinc-800 bg-zinc-950 p-4 text-sm"
                                 key={`${suggestion.code}-${suggestion.label}`}
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div>
-                                    <p className="font-semibold text-slate-950">
+                                    <p className="font-semibold text-foreground">
                                       {suggestion.code} — {suggestion.label}
                                     </p>
                                     <p className="mt-1 text-muted-foreground">
                                       {suggestion.reason}
                                     </p>
                                   </div>
-                                  <Badge className="shrink-0 border-slate-200 bg-slate-50 text-slate-700">
+                                  <Badge className="shrink-0 border-zinc-700 bg-zinc-900 text-zinc-200">
                                     {suggestion.confidence}
                                   </Badge>
                                 </div>
@@ -1353,7 +1499,7 @@ export default function Home() {
                           </p>
                         </div>
                       ) : (
-                        <div className="rounded-md bg-muted/60 p-4 text-sm text-muted-foreground">
+                        <div className="rounded-md bg-zinc-950 p-4 text-sm text-muted-foreground">
                           No ICD suggestions generated.
                         </div>
                       )
@@ -1373,106 +1519,43 @@ export default function Home() {
         </div>
       </div>
 
-      <footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
+      <footer className="shrink-0 border-t border-zinc-800 bg-black px-4 py-3 sm:px-6">
         <div className="mx-auto max-w-[1440px] space-y-2">
-          {showAgentStatus ? (
-            <div
-              className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
-                soapState === "loading"
-                  ? "border-blue-200 bg-blue-50"
-                  : "border-emerald-200 bg-emerald-50"
-              }`}
-            >
-              <div
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                  soapState === "loading"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-emerald-100 text-emerald-700"
-                }`}
-              >
-                {soapState === "loading" ? (
-                  <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 aria-hidden="true" className="size-3.5" />
-                )}
-              </div>
-              <p className="min-w-0 flex-1 truncate text-xs font-medium">
-                {soapState === "loading"
-                  ? `${currentAgentStep.label}...`
-                  : "Context gathered — SOAP draft ready"}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Next step
+              </p>
+              <p className="text-sm font-semibold">
+                {primaryActionConfig[primaryAction].label}
               </p>
             </div>
-          ) : null}
-
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Button
-              disabled={!audioBlob || transcriptionState === "loading"}
-              onClick={handleTranscribe}
-              size="sm"
-              type="button"
-              variant={workspaceTab === "transcript" ? "default" : "outline"}
-            >
-              {transcriptionState === "loading" ? (
-                <Loader2 aria-hidden="true" className="animate-spin" />
-              ) : (
-                <FileText aria-hidden="true" />
-              )}
-              {transcriptionState === "loading" ? "Transcribing..." : "Transcribe"}
-            </Button>
-            <Button
-              disabled={
-                soapState === "loading" || !transcript.trim() || !selectedPatient
-              }
-              onClick={handleGenerateSoap}
-              size="sm"
-              type="button"
-              variant={workspaceTab === "soap" ? "default" : "outline"}
-            >
-              {soapState === "loading" ? (
-                <Loader2 aria-hidden="true" className="animate-spin" />
-              ) : (
-                <Sparkles aria-hidden="true" />
-              )}
-              {soapState === "loading" ? "Generating..." : "Generate SOAP"}
-            </Button>
-            <Button
-              disabled={
-                soapState === "loading" ||
-                !Object.values(soapNote).some((value) => value.trim())
-              }
-              onClick={markReviewed}
-              size="sm"
-              type="button"
-              variant={workspaceTab === "review" ? "default" : "outline"}
-            >
-              <ClipboardCheck aria-hidden="true" />
-              Mark reviewed
-            </Button>
-            <Button
-              disabled={
-                saveState === "loading" ||
-                (reviewState !== "reviewed" && reviewState !== "ready-to-save")
-              }
-              onClick={prepareSave}
-              size="sm"
+              className="min-h-11 w-full sm:w-72"
+              disabled={primaryActionConfig[primaryAction].disabled}
+              onClick={primaryActionConfig[primaryAction].action}
               type="button"
             >
-              {saveState === "loading" ? (
-                <Loader2 aria-hidden="true" className="animate-spin" />
-              ) : (
-                <Save aria-hidden="true" />
-              )}
-              {saveState === "loading" ? "Saving..." : "Save note"}
+              <PrimaryActionIcon
+                aria-hidden="true"
+                className={
+                  primaryActionConfig[primaryAction].loading ? "animate-spin" : ""
+                }
+              />
+              {primaryActionConfig[primaryAction].label}
             </Button>
           </div>
 
           {transcriptionError ? (
             <p className="text-xs text-destructive">{transcriptionError}</p>
           ) : null}
+          {soapError ? (
+            <p className="text-xs text-destructive">{soapError}</p>
+          ) : null}
           {reviewError ? (
             <p
               className={`text-xs ${
-                reviewState === "ready-to-save" ? "text-blue-700" : "text-destructive"
+                reviewState === "ready-to-save" ? "text-amber-300" : "text-destructive"
               }`}
             >
               {reviewError}

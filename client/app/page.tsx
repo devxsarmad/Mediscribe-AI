@@ -1013,8 +1013,8 @@ export default function Home() {
   const PrimaryActionIcon = primaryActionConfig[primaryAction].icon;
 
   return (
-    <main className="flex h-[100dvh] flex-col overflow-hidden bg-background">
-      <header className="shrink-0 border-b border-zinc-800 bg-black/90 px-4 py-3 backdrop-blur sm:px-6">
+    <main className="flex min-h-[100dvh] flex-col bg-background md:h-[100dvh] md:overflow-hidden">
+      <header className="border-b border-zinc-800 bg-black px-4 py-3 sm:px-6 md:shrink-0">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -1030,9 +1030,9 @@ export default function Home() {
             </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:w-auto lg:justify-end">
             <select
-              className="h-9 min-w-[220px] rounded-md border border-input bg-zinc-950 px-3 text-sm font-medium text-foreground shadow-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              className="col-span-2 h-10 w-full rounded-md border border-input bg-zinc-950 px-3 text-sm font-medium text-foreground shadow-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 sm:h-9 sm:min-w-[220px]"
               disabled={patientLoadState === "loading" || !patients.length}
               onChange={(event) => handlePatientChange(event.target.value)}
               value={selectedPatientId}
@@ -1082,15 +1082,15 @@ export default function Home() {
         </div>
       </header>
 
-      <nav className="shrink-0 border-b border-zinc-800 bg-black px-4 sm:px-6">
-        <div className="mx-auto grid max-w-[1440px] gap-2 py-2 md:grid-cols-4">
+      <nav className="border-b border-zinc-800 bg-black px-4 sm:px-6 md:shrink-0">
+        <div className="mx-auto flex max-w-[1440px] gap-2 overflow-x-auto py-2 [scrollbar-width:none] md:grid md:grid-cols-4 md:overflow-visible">
           {workspaceTabs.map((tab, index) => {
             const isActive = workspaceTab === tab.key;
             const isComplete = index < activeStepIndex;
 
             return (
               <div
-                className={`flex min-h-12 items-center gap-3 rounded-md border px-3 ${
+                className={`flex min-h-11 min-w-[185px] items-center gap-3 rounded-md border px-3 md:min-h-12 md:min-w-0 ${
                   isActive
                     ? "border-amber-500 bg-amber-500 text-black"
                     : isComplete
@@ -1120,7 +1120,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+      <div className="flex-1 px-4 py-4 sm:px-6 md:min-h-0 md:overflow-y-auto">
         <div className="mx-auto max-w-[1440px]">
           {workspaceTab === "capture" ? (
             <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
@@ -1129,7 +1129,7 @@ export default function Home() {
                   <CardTitle>Recording</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-amber-500/70 bg-zinc-950 p-6 text-center">
+                  <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-amber-500/70 bg-zinc-950 p-5 text-center sm:min-h-48 sm:p-6">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
                       {recorderState === "recording" ? (
                         <Mic aria-hidden="true" className="size-6" />
@@ -1137,7 +1137,7 @@ export default function Home() {
                         <FileAudio aria-hidden="true" className="size-6" />
                       )}
                     </div>
-                    <p className="mt-4 text-3xl font-semibold tabular-nums">
+                    <p className="mt-3 text-3xl font-semibold tabular-nums sm:mt-4">
                       {formatDuration(elapsedSeconds)}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">{recordingStatus}</p>
@@ -1195,7 +1195,7 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <Textarea
-                  className="min-h-[calc(100dvh-320px)] resize-y"
+                  className="min-h-[45dvh] resize-y md:min-h-[calc(100dvh-320px)]"
                   onChange={(event) => updateTranscript(event.target.value)}
                   placeholder="Record audio on the Capture tab, then transcribe to populate the conversation here."
                   value={transcript}
@@ -1519,17 +1519,9 @@ export default function Home() {
         </div>
       </div>
 
-      <footer className="shrink-0 border-t border-zinc-800 bg-black px-4 py-3 sm:px-6">
+      <footer className="sticky bottom-0 z-30 bg-gradient-to-t from-black via-black/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-6 sm:px-6 md:shrink-0">
         <div className="mx-auto max-w-[1440px] space-y-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-medium uppercase text-muted-foreground">
-                Next step
-              </p>
-              <p className="text-sm font-semibold">
-                {primaryActionConfig[primaryAction].label}
-              </p>
-            </div>
+          <div className="flex justify-end">
             <Button
               className="min-h-11 w-full sm:w-72"
               disabled={primaryActionConfig[primaryAction].disabled}
